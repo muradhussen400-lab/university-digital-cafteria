@@ -7,6 +7,14 @@ import models
 
 models.Base.metadata.create_all(bind=engine)
 
+# Automatically run safe, idempotent production seeding
+try:
+    from scripts.seed_production import seed_production
+    seed_production()
+except Exception as e:
+    print(f"Automatic database seeding failed or skipped: {e}")
+
+
 app = FastAPI(title="Cafeteria System API")
 
 app.add_middleware(
