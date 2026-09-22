@@ -203,10 +203,32 @@ def deactivate_student(student_id: str, current_user: User = Depends(get_current
     db.commit()
     return {"status": "success", "message": "Student deactivated successfully"}
 
-from schemas.admin import AdminMealSessionResponse, AdminScanResponse, MealSessionCreate, MealSessionUpdate
-from models import ScanAttempt, MealType
+from schemas.admin import AdminMealSessionResponse, AdminScanResponse, MealSessionCreate, MealSessionUpdate, StudentCreate
+from models import ScanAttempt, MealType, StudentStatus
 from fastapi.responses import Response
 from core.timezone import get_local_now
+
+@router.post("/students")
+def create_student(req: StudentCreate, current_user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    student_id = req.student_id.strip()
+    full_name = req.full_name.strip()
+    if not student_id or not full_name:
+        raise HTTPException(status_code=400, detail="Student ID and Full Name are required")
+        
+    existing = db.query(Student).filter(Student.student_id == student_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Student with ID '{student_id}' already exists")
+        
+    new_student = Student(
+        student_id=student_id,
+        full_name=full_name,
+        status=StudentStatus.ACTIVE
+    )
+    db.add(new_student)
+    db.commit()
+    db.refresh(new_student)
+    return {"status": "success", "student_id": new_student.student_id, "full_name": new_student.full_name}
+
 
 @router.get("/meals", response_model=List[AdminMealSessionResponse])
 def get_admin_meals(current_user: User = Depends(get_current_admin), db: Session = Depends(get_db)):

@@ -60,5 +60,9 @@ class MealSessionCreate(BaseModel):
     end_time: str # "HH:MM"
 
 class MealSessionUpdate(BaseModel):
-    start_time: str
-    end_time: str
+    start_time: str # "HH:MM"
+    end_time: str # "HH:MM"
+
+class StudentCreate(BaseModel):
+    student_id: str
+    full_name: str

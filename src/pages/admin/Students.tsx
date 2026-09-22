@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Search, KeyRound, Download } from 'lucide-react';
+import { Search, KeyRound, Download, Plus, X, UserPlus } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { apiClient } from '../../services/api/apiClient';
 
@@ -15,6 +15,13 @@ export const StudentsPage = () => {
   const [removingFor, setRemovingFor] = useState<string | null>(null);
   const [generatedCode, setGeneratedCode] = useState<{id: string, code: string, type: 'activation' | 'reset'} | null>(null);
 
+  // New Student Modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newStudentId, setNewStudentId] = useState('');
+  const [newFullName, setNewFullName] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState('');
+
   const fetchStudents = async () => {
     try {
       const response = await apiClient.get('/admin/activations');
@@ -23,6 +30,30 @@ export const StudentsPage = () => {
       console.error("Failed to load students:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError('');
+    if (!newStudentId.trim() || !newFullName.trim()) {
+      setAddError('Both Student ID and Full Name are required.');
+      return;
+    }
+    setIsAdding(true);
+    try {
+      await apiClient.post('/admin/students', {
+        student_id: newStudentId.trim(),
+        full_name: newFullName.trim()
+      });
+      setShowAddModal(false);
+      setNewStudentId('');
+      setNewFullName('');
+      fetchStudents();
+    } catch (err: any) {
+      setAddError(err.response?.data?.detail || 'Failed to add student');
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -102,10 +133,16 @@ export const StudentsPage = () => {
           <h2 className="text-2xl font-bold text-secondary">Students Management</h2>
           <p className="text-text-muted">Manage student records and activation status.</p>
         </div>
-        <Button onClick={handleExportPDF} className="flex items-center gap-2">
-          <Download size={20} />
-          Export Activation Codes
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setShowAddModal(true)} variant="primary" className="flex items-center gap-2">
+            <Plus size={20} />
+            Add Student
+          </Button>
+          <Button onClick={handleExportPDF} variant="outline" className="flex items-center gap-2">
+            <Download size={20} />
+            Export Codes
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -227,6 +264,72 @@ export const StudentsPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Student Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-lg border border-border animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-border">
+              <div className="flex items-center gap-2">
+                <UserPlus size={20} className="text-primary" />
+                <h3 className="text-lg font-semibold text-secondary">Add New Student</h3>
+              </div>
+              <button 
+                onClick={() => { setShowAddModal(false); setAddError(''); }} 
+                className="text-text-muted hover:text-text transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleAddStudent} className="p-6 space-y-4">
+              {addError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-500">
+                  {addError}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-secondary">Student ID Number</label>
+                <Input 
+                  placeholder="e.g. 1802999 or DBU1802999" 
+                  value={newStudentId}
+                  onChange={(e) => setNewStudentId(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-secondary">Full Name</label>
+                <Input 
+                  placeholder="e.g. Abebe Bikila" 
+                  value={newFullName}
+                  onChange={(e) => setNewFullName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => { setShowAddModal(false); setAddError(''); }}
+                  disabled={isAdding}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  variant="primary"
+                  isLoading={isAdding}
+                >
+                  Save Student
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
+
