@@ -3,12 +3,13 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Plus, Clock, Users, X, Edit } from 'lucide-react';
+import { Plus, Clock, Users, X, Edit, Trash2, Play } from 'lucide-react';
 import { apiClient } from '../../services/api/apiClient';
 
 export const MealsPage = () => {
   const [meals, setMeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   // Modals state
   const [showNewModal, setShowNewModal] = useState(false);
@@ -58,6 +59,33 @@ export const MealsPage = () => {
       fetchMeals();
     } catch (err: any) {
       setFormError(err.response?.data?.detail || 'Failed to update schedule');
+    }
+  };
+
+  const handleDeleteSchedule = async (mealId: string, mealName: string) => {
+    if (!window.confirm(`Are you sure you want to delete this ${mealName} session?`)) {
+      return;
+    }
+    setActionLoading(mealId);
+    try {
+      await apiClient.delete(`/admin/meals/${mealId}`);
+      fetchMeals();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to delete meal session');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleOpenNow = async (mealId: string) => {
+    setActionLoading(mealId);
+    try {
+      await apiClient.post(`/admin/meals/${mealId}/open-now`);
+      fetchMeals();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to open meal session');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -145,10 +173,30 @@ export const MealsPage = () => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-3 flex-1">
-                  <Button onClick={() => openEditModal(meal)} variant="outline" className="flex items-center gap-2">
+                <div className="flex items-center justify-end gap-2 flex-1 flex-wrap">
+                  {meal.status !== 'OPEN' && (
+                    <Button 
+                      onClick={() => handleOpenNow(meal.id)} 
+                      isLoading={actionLoading === meal.id}
+                      variant="primary" 
+                      className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      <Play size={16} />
+                      Start Now
+                    </Button>
+                  )}
+                  <Button onClick={() => openEditModal(meal)} variant="outline" className="flex items-center gap-1.5">
                     <Edit size={16} />
                     Edit Time
+                  </Button>
+                  <Button 
+                    onClick={() => handleDeleteSchedule(meal.id, meal.name)} 
+                    isLoading={actionLoading === meal.id}
+                    variant="danger" 
+                    className="flex items-center gap-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border-0"
+                  >
+                    <Trash2 size={16} />
+                    Delete
                   </Button>
                 </div>
                 

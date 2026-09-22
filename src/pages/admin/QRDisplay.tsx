@@ -3,17 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../comp
 import { Button } from '../../components/ui/Button';
 import { apiClient } from '../../services/api/apiClient';
 import QRCode from 'react-qr-code';
-import { RefreshCw, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Clock, CheckCircle, Play } from 'lucide-react';
 
 export const QRDisplay = () => {
   const [qrData, setQrData] = useState<{ token: string, meal: string, expiresAt: Date, mealEndsAt: Date } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [startingMeal, setStartingMeal] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   
   // Live Scans
   const [lastCheck, setLastCheck] = useState<Date>(new Date());
   const [recentScan, setRecentScan] = useState<any>(null);
+
+  const handleQuickStart = async () => {
+    setStartingMeal(true);
+    try {
+      await apiClient.post('/admin/meals/quick-start');
+      await fetchCurrentQR();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to start meal session');
+    } finally {
+      setStartingMeal(false);
+    }
+  };
 
   const fetchLiveScans = async () => {
     try {
@@ -154,11 +167,22 @@ export const QRDisplay = () => {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-center bg-surface-hover rounded-b-lg border-t border-border p-4">
+        <CardFooter className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-surface-hover rounded-b-lg border-t border-border p-4">
           <Button onClick={() => { setLoading(true); fetchCurrentQR().then(()=>setLoading(false)); }} disabled={loading} variant="outline" className="flex items-center gap-2">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Force Refresh
           </Button>
+          {!qrData && (
+            <Button 
+              onClick={handleQuickStart} 
+              isLoading={startingMeal}
+              variant="primary" 
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Play size={16} />
+              Open Meal Session Now
+            </Button>
+          )}
         </CardFooter>
       </Card>
       

@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from database import get_db
-from models import User, Student, MealSession, MealClaim, SecurityAlert, MealSessionStatus, ScanAttempt, ScanResult
+from models import User, Student, MealSession, MealClaim, SecurityAlert, MealSessionStatus, ScanAttempt, ScanResult, QRSession
 from core.dependencies import get_current_admin
 from schemas.admin import DashboardStats, AlertResponse, QRSessionCreate
 from schemas.qr import QRGenerateResponse
@@ -326,15 +326,83 @@ def update_meal_session(session_id: str, req: MealSessionUpdate, current_user: U
         starts_at = session.starts_at.astimezone(local_now.tzinfo).replace(hour=sh, minute=sm, second=0, microsecond=0)
         ends_at = session.ends_at.astimezone(local_now.tzinfo).replace(hour=eh, minute=em, second=0, microsecond=0)
         
+        # If end time is earlier than or equal to start time, assume overnight session (ends tomorrow)
         if ends_at <= starts_at:
-            raise HTTPException(status_code=400, detail="End time must be after start time")
+            ends_at = ends_at + timedelta(days=1)
             
         session.starts_at = starts_at
         session.ends_at = ends_at
+        
+        # Dynamically update status
+        if starts_at <= local_now <= ends_at:
+            session.status = MealSessionStatus.OPEN
+        elif local_now < starts_at:
+            session.status = MealSessionStatus.UPCOMING
+        else:
+            session.status = MealSessionStatus.CLOSED
+            
         db.commit()
         return {"status": "success"}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+
+@router.delete("/meals/{session_id}")
+def delete_meal_session(session_id: str, current_user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    session = db.query(MealSession).filter(MealSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Meal session not found")
+        
+    # Delete related dependencies first to prevent FK constraint errors
+    db.query(MealClaim).filter(MealClaim.meal_session_id == session.id).delete()
+    db.query(ScanAttempt).filter(ScanAttempt.meal_session_id == session.id).delete()
+    db.query(QRSession).filter(QRSession.meal_session_id == session.id).delete()
+    db.delete(session)
+    db.commit()
+    return {"status": "success", "message": "Meal session deleted successfully"}
+
+@router.post("/meals/{session_id}/open-now")
+def open_meal_session_now(session_id: str, current_user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    session = db.query(MealSession).filter(MealSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Meal session not found")
+        
+    local_now = get_local_now()
+    session.starts_at = local_now - timedelta(minutes=5)
+    session.ends_at = local_now + timedelta(hours=3)
+    session.status = MealSessionStatus.OPEN
+    db.commit()
+    return {"status": "success", "message": f"{session.meal_type.name} session opened for next 3 hours"}
+
+@router.post("/meals/quick-start")
+def quick_start_meal(current_user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    local_now = get_local_now()
+    today = local_now.date()
+    
+    # Check if there is an existing session for today that can be opened
+    session = db.query(MealSession).filter(MealSession.date == today).order_by(MealSession.created_at.desc()).first()
+    if not session:
+        meal_type = db.query(MealType).first()
+        if not meal_type:
+            meal_type = MealType(name="DINNER", default_start_time="00:00", default_end_time="23:59")
+            db.add(meal_type)
+            db.commit()
+            db.refresh(meal_type)
+        session = MealSession(
+            meal_type_id=meal_type.id,
+            date=today,
+            starts_at=local_now - timedelta(minutes=5),
+            ends_at=local_now + timedelta(hours=3),
+            status=MealSessionStatus.OPEN
+        )
+        db.add(session)
+    else:
+        session.starts_at = local_now - timedelta(minutes=5)
+        session.ends_at = local_now + timedelta(hours=3)
+        session.status = MealSessionStatus.OPEN
+        
+    db.commit()
+    return {"status": "success", "id": str(session.id)}
+
 
 @router.get("/scans", response_model=List[AdminScanResponse])
 def get_admin_scans(
