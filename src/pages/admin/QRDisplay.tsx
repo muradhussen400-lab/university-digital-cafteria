@@ -83,7 +83,7 @@ export const QRDisplay = () => {
     try {
       const res = await apiClient.get('/admin/qr/current');
       if (res.data.status === 'no_active_meal') {
-        setError('NO ACTIVE MEAL');
+        setError('STATION_CLOSED');
         setQrData(null);
         return;
       }
@@ -112,7 +112,7 @@ export const QRDisplay = () => {
     const updateCountdown = () => {
       const now = new Date();
       if (now > qrData.mealEndsAt) {
-        setError('MEAL SESSION ENDED');
+        setError('STATION_CLOSED');
         setQrData(null);
         setTimeLeft(0);
         return;
@@ -180,7 +180,17 @@ export const QRDisplay = () => {
           )}
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center p-8">
-          {error ? (
+          {error === 'STATION_CLOSED' ? (
+            <div className="flex flex-col items-center justify-center p-8 w-full">
+              <div className="w-24 h-24 bg-surface rounded-full flex items-center justify-center mb-6 shadow-sm border border-border">
+                <Clock size={48} className="text-text-muted opacity-80" />
+              </div>
+              <h2 className="text-3xl font-bold text-center text-secondary mb-2">Station Closed</h2>
+              <p className="text-text-muted text-center max-w-sm">
+                There is currently no active meal session. The QR scanner will automatically appear when a session starts.
+              </p>
+            </div>
+          ) : error ? (
             <div className="flex flex-col items-center justify-center text-danger p-8 bg-danger/5 rounded-xl w-full border border-danger/20">
               <AlertTriangle size={64} className="mb-4 opacity-80" />
               <h2 className="text-2xl font-bold text-center tracking-wide">{error}</h2>
