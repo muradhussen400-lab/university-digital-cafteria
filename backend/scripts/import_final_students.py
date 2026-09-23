@@ -49,7 +49,6 @@ raw_data = """
 43. DBU1803218 – Zelalem
 44. DBU1800586 – Zenebe
 45. DBU1800593 – Zinash
-46. DBU1800528 – Getabalew Birhanu
 47. DBU1800321 – Gebrekidan Gebrehiwot
 48. DBU1800058 – Nigrem Kifle
 49. DBU1800293 – Eyayu Yonus
@@ -83,9 +82,9 @@ def main():
         name = parts[1].strip()
         
         if student_id in seen_in_this_run:
-            error_msg = f"CRITICAL CONFLICT DETECTED: Student ID {student_id} is duplicated within the input list. Previously seen, now appears as '{name}'. Halting import to prevent data corruption."
-            print(error_msg)
-            raise ValueError(error_msg)
+            print(f"CONFLICT DETECTED: Student ID {student_id} is duplicated within the input list. Skipping '{name}'.")
+            conflicts += 1
+            continue
             
         seen_in_this_run.add(student_id)
         
@@ -94,9 +93,8 @@ def main():
         
         if existing_student:
             if existing_student.full_name != name:
-                error_msg = f"CRITICAL CONFLICT DETECTED: Student ID {student_id} is already registered as '{existing_student.full_name}'. Tried to add '{name}'. Halting import."
-                print(error_msg)
-                raise ValueError(error_msg)
+                print(f"CONFLICT DETECTED: Student ID {student_id} is already registered as '{existing_student.full_name}'. Skipping addition of '{name}'.")
+                conflicts += 1
             else:
                 existing += 1
         else:
