@@ -374,9 +374,18 @@ def delete_meal_session(session_id: str, current_user: User = Depends(get_curren
         raise HTTPException(status_code=404, detail="Meal session not found")
         
     # Delete related dependencies first to prevent FK constraint errors
-    db.query(MealClaim).filter(MealClaim.meal_session_id == session.id).delete()
-    db.query(ScanAttempt).filter(ScanAttempt.meal_session_id == session.id).delete()
-    db.query(QRSession).filter(QRSession.meal_session_id == session.id).delete()
+    # Get all QR sessions for this meal session
+    qr_sessions = db.query(QRSession).filter(QRSession.meal_session_id == session.id).all()
+    qr_session_ids = [qr.id for qr in qr_sessions]
+    
+    # Delete all scan attempts linked to this meal session or its QR sessions
+    if qr_session_ids:
+        db.query(ScanAttempt).filter(ScanAttempt.qr_session_id.in_(qr_session_ids)).delete(synchronize_session=False)
+    db.query(ScanAttempt).filter(ScanAttempt.meal_session_id == session.id).delete(synchronize_session=False)
+    
+    db.query(MealClaim).filter(MealClaim.meal_session_id == session.id).delete(synchronize_session=False)
+    db.query(QRSession).filter(QRSession.meal_session_id == session.id).delete(synchronize_session=False)
+    
     db.delete(session)
     db.commit()
     return {"status": "success", "message": "Meal session deleted successfully"}

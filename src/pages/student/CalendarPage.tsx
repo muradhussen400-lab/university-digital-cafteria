@@ -62,9 +62,11 @@ export const CalendarPage = () => {
         currentDate.getMonth() === today.getMonth() && 
         currentDate.getFullYear() === today.getFullYear();
         
-      // Match history records for this day
-      const dayDate = new Date(year, currentDate.getMonth(), day).toISOString().split('T')[0];
-      const dayRecords = history.filter(h => h.date.startsWith(dayDate));
+      // Match history records for this day by formatting locally to avoid UTC offset issues
+      const localMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const localDay = String(day).padStart(2, '0');
+      const dayDate = `${year}-${localMonth}-${localDay}`;
+      const dayRecords = history.filter(h => h.date && h.date.startsWith(dayDate));
       
       const hasBreakfast = dayRecords.some(h => h.meal_type === 'BREAKFAST');
       const hasLunch = dayRecords.some(h => h.meal_type === 'LUNCH');
