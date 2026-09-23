@@ -9,6 +9,7 @@ from core.dependencies import get_current_student
 from schemas.student import StudentProfile, ScanRequest, ScanResponse, MealSessionInfo, HistoryClaim, ChangePasswordRequest
 from services.scan_service import verify_scan
 from core.security import verify_password, get_password_hash
+from core.rate_limit import scan_limiter
 
 router = APIRouter(prefix="/student", tags=["student"])
 
@@ -31,7 +32,7 @@ def get_today_meals(db: Session = Depends(get_db)):
         } for s in sessions
     ]
 
-@router.post("/scan", response_model=ScanResponse)
+@router.post("/scan", response_model=ScanResponse, dependencies=[Depends(scan_limiter)])
 def scan_qr_code(
     scan_req: ScanRequest, 
     current_user: User = Depends(get_current_student), 
@@ -65,12 +66,12 @@ def get_student_history(current_user: User = Depends(get_current_student), db: S
 
 @router.post("/change-password")
 def change_password(req: ChangePasswordRequest, current_user: User = Depends(get_current_student), db: Session = Depends(get_db)):
-    if not verify_password(req.current_password, current_user.hashed_password):
+    if not verify_password(req.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect current password")
         
-    if len(req.new_password) < 6:
-        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
         
-    current_user.hashed_password = get_password_hash(req.new_password)
+    current_user.password_hash = get_password_hash(req.new_password)
     db.commit()
     return {"status": "success", "message": "Password updated successfully"}

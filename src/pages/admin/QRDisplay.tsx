@@ -11,6 +11,31 @@ export const QRDisplay = () => {
   const [loading, setLoading] = useState(false);
   const [startingMeal, setStartingMeal] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [alarmEnabled, setAlarmEnabled] = useState(false);
+  
+  // We'll use AudioContext for a reliable beep without needing an external file.
+  const playAlarm = () => {
+    if (!alarmEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 600; // Hz
+      
+      // Beep pattern
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.error("Audio play failed", e);
+    }
+  };
   
   // Live Scans
   const [lastCheck, setLastCheck] = useState<Date>(new Date());
@@ -36,7 +61,12 @@ export const QRDisplay = () => {
         // Show the most recent scan
         const latest = res.data[res.data.length - 1];
         setRecentScan(latest);
-        setTimeout(() => setRecentScan(null), 5000); // Clear after 5 seconds
+        
+        if (latest.result === 'DUPLICATE') {
+          playAlarm();
+        } else {
+          setTimeout(() => setRecentScan(null), 5000); // Clear after 5 seconds if success
+        }
       }
       setLastCheck(now);
     } catch (err) {
@@ -117,16 +147,23 @@ export const QRDisplay = () => {
 
       <Card className={`w-full max-w-lg shadow-xl border-2 relative overflow-hidden ${qrData ? 'border-primary/50' : 'border-border'}`}>
         {recentScan && (
-          <div className={`absolute top-0 left-0 right-0 p-4 z-10 flex items-center justify-between text-white animate-in slide-in-from-top-full duration-300 ${recentScan.result === 'SUCCESS' ? 'bg-green-500' : 'bg-red-500'}`}>
+          <div className={`absolute top-0 left-0 right-0 p-4 z-20 flex items-center justify-between text-white animate-in slide-in-from-top-full duration-300 ${recentScan.result === 'SUCCESS' ? 'bg-green-500' : 'bg-red-600'}`}>
             <div className="flex items-center gap-3">
-              {recentScan.result === 'SUCCESS' ? <CheckCircle size={24} /> : <AlertTriangle size={24} />}
+              {recentScan.result === 'SUCCESS' ? <CheckCircle size={24} /> : <AlertTriangle size={24} className="animate-pulse" />}
               <div>
-                <p className="font-bold">{recentScan.student_name} ({recentScan.student_id})</p>
-                <p className="text-sm opacity-90">{recentScan.result === 'SUCCESS' ? 'Meal claimed successfully' : `Duplicate/Invalid Scan: ${recentScan.reason}`}</p>
+                <p className="font-bold text-lg">{recentScan.student_name} ({recentScan.student_id})</p>
+                <p className="text-sm opacity-90">{recentScan.result === 'SUCCESS' ? 'Meal claimed successfully' : `🚨 DUPLICATE / INVALID SCAN: ${recentScan.reason}`}</p>
               </div>
             </div>
-            <div className="text-xs opacity-75 font-mono">
-              {new Date(recentScan.time).toLocaleTimeString()}
+            <div className="flex flex-col items-end gap-1">
+              <div className="text-xs opacity-75 font-mono">
+                {new Date(recentScan.time).toLocaleTimeString()}
+              </div>
+              {recentScan.result !== 'SUCCESS' && (
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => { setRecentScan(null); }} className="text-xs bg-black/20 hover:bg-black/40 px-2 py-1 rounded">Dismiss Alert</button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -168,6 +205,13 @@ export const QRDisplay = () => {
           )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-surface-hover rounded-b-lg border-t border-border p-4">
+          <Button 
+            onClick={() => setAlarmEnabled(!alarmEnabled)} 
+            variant={alarmEnabled ? "primary" : "outline"} 
+            className="flex items-center gap-2"
+          >
+            {alarmEnabled ? "🔊 Alarm Enabled" : "🔈 Enable Alarm Sound"}
+          </Button>
           <Button onClick={() => { setLoading(true); fetchCurrentQR().then(()=>setLoading(false)); }} disabled={loading} variant="outline" className="flex items-center gap-2">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Force Refresh

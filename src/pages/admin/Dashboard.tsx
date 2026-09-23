@@ -46,40 +46,62 @@ export const AdminDashboard = () => {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-text-muted mb-1">Total Students</p>
-                  <p className="text-3xl font-bold text-secondary">{stats?.total_students || 0}</p>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  <Users size={24} />
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-text-muted mb-1 flex items-center justify-between">
+                  Total Students <Users size={16} />
+                </p>
+                <p className="text-3xl font-bold text-secondary">{stats?.total_students || 0}</p>
+                <div className="flex gap-2 mt-2 text-xs text-text-muted">
+                  <span className="text-success">{stats?.activated_students || 0} active</span>
+                  <span>•</span>
+                  <span className="text-danger">{stats?.unactivated_students || 0} unactivated</span>
                 </div>
               </CardContent>
             </Card>
             
             <Card>
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-text-muted mb-1">Meals Served Today</p>
-                  <p className="text-3xl font-bold text-secondary">{stats?.meals_claimed_today || 0}</p>
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-text-muted mb-1 flex items-center justify-between">
+                  Today's Claims <UtensilsCrossed size={16} />
+                </p>
+                <p className="text-3xl font-bold text-secondary">
+                  {(stats?.breakfast_claims || 0) + (stats?.lunch_claims || 0) + (stats?.dinner_claims || 0)}
+                </p>
+                <div className="flex gap-2 mt-2 text-xs text-text-muted">
+                  <span>B: {stats?.breakfast_claims || 0}</span>
+                  <span>•</span>
+                  <span>L: {stats?.lunch_claims || 0}</span>
+                  <span>•</span>
+                  <span>D: {stats?.dinner_claims || 0}</span>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                  <UtensilsCrossed size={24} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-text-muted mb-1 flex items-center justify-between">
+                  Failed Scans <AlertTriangle size={16} />
+                </p>
+                <p className="text-3xl font-bold text-secondary text-danger">
+                  {(stats?.duplicate_attempts || 0) + (stats?.invalid_scans || 0)}
+                </p>
+                <div className="flex gap-2 mt-2 text-xs text-text-muted">
+                  <span className="text-warning">{stats?.duplicate_attempts || 0} duplicate</span>
+                  <span>•</span>
+                  <span className="text-danger">{stats?.invalid_scans || 0} invalid</span>
                 </div>
               </CardContent>
             </Card>
             
             <Card>
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-text-muted mb-1">Active Alerts</p>
-                  <p className="text-3xl font-bold text-secondary">{stats?.active_alerts || 0}</p>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                  <AlertTriangle size={24} />
-                </div>
+              <CardContent className="p-6">
+                <p className="text-sm font-medium text-text-muted mb-1 flex items-center justify-between">
+                  Active Alerts <AlertTriangle size={16} />
+                </p>
+                <p className="text-3xl font-bold text-secondary">{stats?.active_alerts || 0}</p>
+                <div className="mt-2 text-xs text-text-muted">Requires admin review</div>
               </CardContent>
             </Card>
           </div>
@@ -95,8 +117,8 @@ export const AdminDashboard = () => {
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 text-success mb-2">
                     <UtensilsCrossed size={32} />
                   </div>
-                  <h3 className="text-2xl font-bold text-secondary">Active Meals: {stats?.active_meals}</h3>
-                  <p className="text-text-muted mb-6">Open meal sessions currently accepting claims.</p>
+                  <h3 className="text-2xl font-bold text-secondary">Control Station</h3>
+                  <p className="text-text-muted mb-6">Open meal sessions and manage active connections.</p>
                   
                   <div className="grid grid-cols-2 gap-4 border-t border-border pt-6">
                     <Button onClick={() => navigate('/admin/qr-display')} className="w-full">

@@ -43,25 +43,31 @@ export const StudentDashboard = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  // Convert API meals to the format MealCard expects
-  const displayMeals = meals.map(m => {
+  // Convert API meals to the format MealCard expects, ensuring all 3 are shown
+  const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER'];
+  const displayMeals = mealTypes.map(mealName => {
+    // Find if admin scheduled it
+    const m = meals.find(apiMeal => apiMeal.meal_type === mealName);
+    
     // Determine if student claimed it by looking at history for today
     const isClaimed = history.some(h => 
-      h.meal_type === m.meal_type && formatDate(h.date) === formatDate(new Date().toISOString())
+      h.meal_type === mealName && formatDate(h.date) === formatDate(new Date().toISOString())
     );
     
     let displayStatus = 'CLOSED';
     if (isClaimed) {
       displayStatus = 'USED';
-    } else if (m.status === 'OPEN') {
+    } else if (m && m.status === 'OPEN') {
       displayStatus = 'AVAILABLE';
+    } else if (m && m.status === 'UPCOMING') {
+      displayStatus = 'CLOSED';
     }
 
     return {
-      id: m.id,
-      name: m.meal_type,
-      startTime: formatTime(m.starts_at),
-      endTime: formatTime(m.ends_at),
+      id: m?.id || mealName,
+      name: mealName,
+      startTime: m ? formatTime(m.starts_at) : '--:--',
+      endTime: m ? formatTime(m.ends_at) : '--:--',
       status: displayStatus
     };
   });

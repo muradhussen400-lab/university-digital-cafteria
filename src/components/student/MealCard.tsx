@@ -63,7 +63,9 @@ export const MealCard = ({ meal, status }: MealCardProps) => {
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2">
             {config.icon}
-            <h3 className="font-semibold text-lg">{meal.name}</h3>
+            <h3 className="font-semibold text-lg">
+              {meal.name} {status === 'USED' ? '✓' : '○'}
+            </h3>
           </div>
           <Badge variant={config.badgeVariant}>{status}</Badge>
         </div>

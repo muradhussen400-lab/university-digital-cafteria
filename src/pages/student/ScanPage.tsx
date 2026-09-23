@@ -147,6 +147,22 @@ export const ScanPage = () => {
           </div>
         );
 
+      case 'ERROR':
+        return (
+          <div className="flex flex-col items-center justify-center py-8 space-y-6 text-center animate-in fade-in zoom-in duration-300">
+            <div className="w-24 h-24 bg-danger/10 rounded-full flex items-center justify-center">
+              <AlertTriangle size={48} className="text-danger" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-danger mb-2">System Error</h2>
+              <p className="text-text">There was a problem communicating with the server. Please try again.</p>
+            </div>
+            <Button className="w-full mt-4" variant="secondary" size="lg" onClick={() => setScanState('IDLE')}>
+              Try Again
+            </Button>
+          </div>
+        );
+
       default:
         return null;
     }

@@ -51,3 +51,9 @@ backend/check.py
 *.njsproj
 *.sln
 *.sw?
+
+# Secrets and Backups
+secrets/
+backups/
+*.bak
+

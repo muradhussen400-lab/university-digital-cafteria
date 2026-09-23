@@ -18,14 +18,35 @@ def get_dashboard_stats(current_user: User = Depends(get_current_admin), db: Ses
     today = datetime.now(timezone.utc).date()
     
     total_students = db.query(Student).count()
-    active_meals = db.query(MealSession).filter(MealSession.date == today, MealSession.status == MealSessionStatus.OPEN).count()
-    meals_claimed_today = db.query(MealClaim).join(MealSession).filter(MealSession.date == today).count()
+    activated_students = db.query(Student).join(User).count()
+    unactivated_students = total_students - activated_students
+    
+    # Meal claims
+    breakfast_claims = db.query(MealClaim).join(MealSession).join(MealType).filter(MealSession.date == today, func.upper(MealType.name) == 'BREAKFAST').count()
+    lunch_claims = db.query(MealClaim).join(MealSession).join(MealType).filter(MealSession.date == today, func.upper(MealType.name) == 'LUNCH').count()
+    dinner_claims = db.query(MealClaim).join(MealSession).join(MealType).filter(MealSession.date == today, func.upper(MealType.name) == 'DINNER').count()
+    
+    # Scans today
+    from sqlalchemy import cast, Date
+    duplicate_attempts = db.query(ScanAttempt).filter(cast(ScanAttempt.scanned_at, Date) == today, ScanAttempt.result == ScanResult.DUPLICATE).count()
+    
+    # All non-SUCCESS and non-DUPLICATE scans
+    invalid_scans = db.query(ScanAttempt).filter(
+        cast(ScanAttempt.scanned_at, Date) == today,
+        ScanAttempt.result.in_([ScanResult.INVALID, ScanResult.EXPIRED, ScanResult.CLOSED, ScanResult.ERROR])
+    ).count()
+
     active_alerts = db.query(SecurityAlert).filter(SecurityAlert.status == "OPEN").count()
     
     return DashboardStats(
         total_students=total_students,
-        active_meals=active_meals,
-        meals_claimed_today=meals_claimed_today,
+        activated_students=activated_students,
+        unactivated_students=unactivated_students,
+        breakfast_claims=breakfast_claims,
+        lunch_claims=lunch_claims,
+        dinner_claims=dinner_claims,
+        duplicate_attempts=duplicate_attempts,
+        invalid_scans=invalid_scans,
         active_alerts=active_alerts
     )
 
@@ -80,7 +101,7 @@ def get_current_qr(current_user: User = Depends(get_current_admin), db: Session 
         QRSession.is_active == True
     ).update({"is_active": False})
     
-    new_qr_resp = generate_qr_token(db, str(active_session.id), expires_minutes=0, expires_seconds=60)
+    new_qr_resp = generate_qr_token(db, str(active_session.id), expires_minutes=0, expires_seconds=20)
     return {
         "status": "success",
         "meal": active_session.meal_type.name,

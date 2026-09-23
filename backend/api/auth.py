@@ -10,10 +10,24 @@ from core.config import settings
 from schemas.auth import Token, UserResponse, ActivationRequest
 from core.dependencies import get_current_user
 from services.activation_service import hash_activation_code
+from core.rate_limit import login_limiter, activation_limiter
+from models import AuditLog
+import json
+
+def _log_audit(db: Session, user_id, action: str, entity_type: str, entity_id: str, meta: dict = None):
+    log = AuditLog(
+        user_id=user_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        metadata_info=meta
+    )
+    db.add(log)
+    db.commit()
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(login_limiter)])
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
     
@@ -21,6 +35,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         # Check if they are an unactivated student
         student = db.query(Student).filter(Student.student_id == form_data.username).first()
         if student:
+            _log_audit(db, None, "FAILED_LOGIN", "STUDENT", str(student.id), {"reason": "Account not activated"})
             raise HTTPException(
                 status_code=403,
                 detail="Account not activated. Please activate your student account first."
@@ -33,6 +48,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         )
         
     if not verify_password(form_data.password, user.password_hash):
+        _log_audit(db, user.id, "FAILED_LOGIN", "USER", str(user.id), {"reason": "Incorrect password"})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -40,15 +56,18 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         )
         
     if not user.is_active:
+        _log_audit(db, user.id, "FAILED_LOGIN", "USER", str(user.id), {"reason": "Inactive user"})
         raise HTTPException(status_code=400, detail="Inactive user")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username, "role": user.role.value}, expires_delta=access_token_expires
     )
+    
+    _log_audit(db, user.id, "SUCCESSFUL_LOGIN", "USER", str(user.id))
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.post("/activate", response_model=dict)
+@router.post("/activate", response_model=dict, dependencies=[Depends(activation_limiter)])
 def activate_account(req: ActivationRequest, db: Session = Depends(get_db)):
     # 1. Verify student exists and is active
     student = db.query(Student).filter(Student.student_id == req.student_id).first()
@@ -98,6 +117,8 @@ def activate_account(req: ActivationRequest, db: Session = Depends(get_db)):
     
     db.commit()
     
+    _log_audit(db, new_user.id, "ACCOUNT_ACTIVATED", "STUDENT", str(student.id))
+    
     return {"status": "success", "message": "Account activated successfully."}
 
 @router.get("/me", response_model=UserResponse)
@@ -114,7 +135,7 @@ from models import PasswordResetToken
 from services.reset_service import hash_reset_code
 from core.dependencies import get_current_admin
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=[Depends(activation_limiter)])
 def reset_password(req: PasswordResetRequest, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.student_id == req.student_id).first()
     if not student:
@@ -157,6 +178,8 @@ def reset_password(req: PasswordResetRequest, db: Session = Depends(get_db)):
     valid_token.used_at = datetime.now(timezone.utc)
     
     db.commit()
+    
+    _log_audit(db, user.id, "PASSWORD_RESET", "USER", str(user.id))
     return {"status": "success", "message": "Password reset successfully."}
 
 @router.post("/change-admin-password")

@@ -5,8 +5,13 @@ from datetime import datetime
 
 class DashboardStats(BaseModel):
     total_students: int
-    active_meals: int
-    meals_claimed_today: int
+    activated_students: int
+    unactivated_students: int
+    breakfast_claims: int
+    lunch_claims: int
+    dinner_claims: int
+    duplicate_attempts: int
+    invalid_scans: int
     active_alerts: int
 
 class AlertResponse(BaseModel):
